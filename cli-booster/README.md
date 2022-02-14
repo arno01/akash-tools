@@ -8,9 +8,9 @@ Feel free to contribute via pull request!
 
 ## Pre-requisites
 
-- this has been tested in Linux (Ubuntu)
-- make sure you have these programs installed:
-  bash, grep, column, awk, jq, nc, curl, akash
+- this has been tested only in Linux (Ubuntu). It might not work in macOS/Windows(cygwin), if you fix the issues, please file a PR;
+- make sure you have these programs installed: `bash, grep, column, awk, jq, nc, curl, akash`;
+- make sure to have an akash account address (run `akash keys add default` to create one) with non-empty balance (5 AKT deposit is required for each deployment);
 
 ## Features
 
