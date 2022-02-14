@@ -4,7 +4,7 @@
 # Author: Andy <andrey.arapov@nixaid.com>
 #
 # Make sure you have the following programs installed:
-# bash, grep, column, awk, jq, nc, curl, akash
+# bash, grep, column, awk, jq, bc, nc, curl, akash
 #
 #
 
@@ -69,7 +69,7 @@ function check_rpc() {
   DATE_AKASH=$(akash status | jq -r '.SyncInfo.latest_block_time')
   TS_AKASH=$(date +%s --date "$DATE_AKASH")
   TS=$(date +%s)
-  DIFF=$(echo "$TS - $TS_AKASH" | bc -l)
+  DIFF=$(echo "$TS - $TS_AKASH" | bc)
   if [ $DIFF -gt 30 ]; then
     e_echo "Akash RPC $AKASH_NODE is running $DIFF seconds behind."
     echo "ACTION: Please source me (or run set_rpc) command again."
@@ -165,7 +165,7 @@ function akash_deploy() {
   fi
 
   B=$(akash_balance);
-  if (( $(echo "$B < 5.5" |bc -l) )); then
+  if (( $(echo "$B < 5.5" | bc) )); then
     e_echo "Your $AKASH_OWNER account has low balance, make sure to have at least 5.5 AKT."
     return 1
   fi
@@ -330,24 +330,16 @@ function akash_accept() {
 
   if [ -z "$AKASH_PROVIDER" ]; then
     echo "AKASH_PROVIDER was not set so let's try to pick from what's available for your deployment."
-    #echo "AKASH_PROVIDER was not set, trying to find the cheapest one..."
-    # find the cheapest provider
-    #[[ ! -e providers.exclude ]] && touch providers.exclude
-    #export AKASH_PROVIDER=$(akash query market bid list --state open | jq -r '.bids[].bid | [.price.amount, (.bid_id | .provider)] | @csv' | grep -Evf providers.exclude | sort -n -k1,1 | head -1 | cut -d"," -f2 | sed 's/"//g')
     PL="$(akash query market bid list --state open)"
     bids_n="$(echo "$PL" | jq -r '.bids | length')"
     if [[ "$bids_n" -le 0 ]]; then
       echo "Unable to find any bids. Try re-running in few seconds."
       return 1
     fi
-    # akash query provider get $provider | jq -r '.host_uri'
-    #echo "$PL" | jq -r '["price","dseq","oseq","gseq","provider"], (.bids[].bid | [.price.amount, (.bid_id | .dseq, .oseq, .gseq, .provider)]) | @csv' | column -t -s"," | awk '{if (NR!=1) {print NR-2 ">\t" $s} else {print "\t" $s}}'
-    printf "\tprice\tdseq\toseq\tgseq\tprovider\t\t\t\t\thost\n"
-    echo "$PL" | jq -r '.bids[].bid | [.price.amount, (.bid_id | .dseq, .oseq, .gseq, .provider)] | @tsv' | while read price dseq oseq gseq p; do uri="$(akash query provider get $p | jq -r '.host_uri' | awk -F/ '{print $3}')"; is_alive=$([ $NO_PROVIDER_PORT_CHECK -ne 1 ] && { nc -z -w1 ${uri//:/\ } && echo OK || echo DEAD;}); printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\n" $price $dseq $oseq $gseq $p $uri $is_alive; done | awk '{print NR-1  ">\t" $s}'
-    # awk '{if (NR!=1) {print NR-2  ">\t" $s} else {print "\tprice\tdseq\toseq\tgseq\tprovider\t\t\t\t\thost\n"}}'
 
-    # echo "$PL" | jq -r '["price","dseq","oseq","gseq","provider"], (.bids[].bid | [.price.amount, (.bid_id | .dseq, .oseq, .gseq, .provider)]) | @csv' | column -t -s"," | awk '{if (NR!=1) {print NR-2 ">\t" $s} else {print "\t" $s}}'
-    #echo "$OL" | jq -r '["dseq","gseq","oseq"], (.orders[].order_id | [ .dseq, .gseq, .oseq ]) | @csv' | column -t -s"," | awk '{if (NR!=1) {print NR-2  ">\t" $s} else {print "\t" $s}}'
+    printf "\trate\tmonthly\tdseq\toseq\tgseq\tprovider\t\t\t\t\thost\n"
+    echo "$PL" | jq -r '.bids[].bid | [.price.amount, (.bid_id | .dseq, .oseq, .gseq, .provider)] | @tsv' | while read rate dseq oseq gseq p; do uri="$(akash query provider get $p | jq -r '.host_uri' | awk -F/ '{print $3}')"; is_alive=$([ $NO_PROVIDER_PORT_CHECK -ne 1 ] && { nc -z -w1 ${uri//:/\ } && echo OK || echo DEAD;}); price_m=$(echo "scale=2; $rate*((60/6.468)*60*24*30.436875)/10^6" | bc -l | sed 's/^\./0./'); printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" $rate $price_m $dseq $oseq $gseq $p $uri $is_alive; done | awk '{print NR-1  ">\t" $s}'
+
     n_last=$((bids_n-1));
     read -ep "Choose your bid from the list [$n_last]: " n
     [[ -z "$n" ]] && n=$n_last;
@@ -360,7 +352,6 @@ function akash_accept() {
   fi
 
   if [ -z "$AKASH_PROVIDER" ]; then
-    #echo "$AKASH_NODE RPC returned '$rc' code. Please retry or chose another RPC."
     e_echo "Could not find the provider. Most likely Akash RPC issues. Try to rerun this command or change Akash RPC node."
     return 1
   fi
@@ -368,7 +359,6 @@ function akash_accept() {
   i_echo "Accepting the bid offered by $AKASH_PROVIDER provider for $AKASH_DSEQ deployment"
 
   export AKASH_PROVIDER
-  #TX=$(akash_safe_tx market lease create -y) # | jq -r '.txhash')
   PL="$(akash query market bid list --state open)"
   bids_n="$(echo "$PL" | jq -r '.bids | length')"
   if [[ "$bids_n" -le 0 ]]; then
@@ -524,7 +514,7 @@ function auto_select_key() {
 function set_net() {
   unset AKASH_NODE
   
-  NET=${NET:-mainnet} # edgenet, testnet
+  export NET=${NET:-mainnet} # edgenet, testnet
   # make sure to download newest Akash release when running edgenet or testnet
   # https://github.com/ovrclk/akash/releases
   
