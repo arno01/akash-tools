@@ -6,6 +6,10 @@ Written quickly over the weekend, so it can look ugly to the linter.
 
 Feel free to contribute via pull request!
 
+## Showcase
+
+[![asciicast](https://asciinema.org/a/r0MHDdXzw33WuHTVXOUlTiPUM.svg)](https://asciinema.org/a/r0MHDdXzw33WuHTVXOUlTiPUM)
+
 ## Pre-requisites
 
 - this has been tested only in Linux (Ubuntu). It might not work in macOS/Windows(cygwin), if you fix the issues, please file a PR;
