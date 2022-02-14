@@ -205,7 +205,6 @@ function akash_update() {
 
 function akash_close() {
   check_envs AKASH_DSEQ || return 1
-  # TODO: check if the deployment has already been closed and unset AKASH_DSEQ if it is so.
   akash query deployment get | jq -r '.deployment.state' | grep -qw closed && { echo "$AKASH_DSEQ is already closed."; return 0; }
 
   TX=$(akash_safe_tx deployment close -y) # | jq -r '.txhash')
@@ -370,14 +369,13 @@ function akash_accept() {
 
   export AKASH_PROVIDER
   #TX=$(akash_safe_tx market lease create -y) # | jq -r '.txhash')
-  # TODO check bid is active or you get this error:
   PL="$(akash query market bid list --state open)"
   bids_n="$(echo "$PL" | jq -r '.bids | length')"
   if [[ "$bids_n" -le 0 ]]; then
     echo "Unable to find any bids. Try re-running in few seconds."
     return 1
   fi
-  # Error: failed to execute message; message index: 0: invalid bid: bid not found: invalid request
+
   akash_safe_tx market lease create -y
 }
 
