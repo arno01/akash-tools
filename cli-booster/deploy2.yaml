@@ -2,13 +2,15 @@
 version: "2.0"
 
 services:
-  app:
+  app1:
     image: bsord/tetris
-    # command:
-    #   - "sh"
-    #   - "-c"
-    # args:
-    #   - sleep infinity
+    expose:
+      - port: 80
+        as: 80
+        to:
+          - global: true
+  app2:
+    image: bsord/tetris
     expose:
       - port: 80
         as: 80
@@ -36,7 +38,11 @@ profiles:
           amount: 100
 
 deployment:
-  app:
+  app1:
+    akash:
+      profile: app
+      count: 1
+  app2:
     akash:
       profile: app
       count: 1

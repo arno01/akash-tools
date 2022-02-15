@@ -8,7 +8,7 @@ Feel free to contribute via pull request!
 
 ## Showcase
 
-[![asciicast](https://asciinema.org/a/r0MHDdXzw33WuHTVXOUlTiPUM.svg)](https://asciinema.org/a/r0MHDdXzw33WuHTVXOUlTiPUM)
+[![asciicast](https://asciinema.org/a/1u8kicXlP66s6e2ywJYavLUcA.svg)](https://asciinema.org/a/1u8kicXlP66s6e2ywJYavLUcA)
 
 ## Pre-requisites
 
@@ -18,10 +18,11 @@ Feel free to contribute via pull request!
 
 ## Features
 
-- automatically detects keyring backend;
-- switching between mainnet/edgenet/testnet;
-- switching between orders / deployments;
+- automatically sets Akash RPC node;
 - aborts when Akash RPC is 30sec behind the or ahead of time;
+- automatically detects keyring backend;
+- switching between mainnet/edgenet/testnet networks;
+- switching between orders / deployments;
 - shows detailed TX error for every `akash tx` command;
 - shows provider `host_uri` and is checking their liveness;
 
