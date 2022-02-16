@@ -1,6 +1,6 @@
-# Akash CLI shell booster 0.2
+# Akash CLI shell booster 0.3
 #
-# Date: 15 February 2022
+# Date: 16 February 2022
 # Author: Andy <andrey.arapov@nixaid.com>
 #
 # Make sure you have the following programs installed:
@@ -338,8 +338,10 @@ function akash_accept() {
       return 1
     fi
 
-    printf "\trate\tmonthly\tdseq\toseq\tgseq\tprovider\t\t\t\t\thost\n"
-    echo "$PL" | jq -r '.bids[].bid | [.price.amount, (.bid_id | .dseq, .oseq, .gseq, .provider)] | @tsv' | while read rate dseq oseq gseq p; do uri="$(akash query provider get $p | jq -r '.host_uri' | awk -F/ '{print $3}')"; is_alive=$([ $NO_PROVIDER_PORT_CHECK -ne 1 ] && { nc -z -w1 ${uri//:/\ } && echo OK || echo DEAD;}); price_m=$(echo "scale=2; $rate*((60/6.468)*60*24*30.436875)/10^6" | bc -l | sed 's/^\./0./'); printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" $rate $price_m $dseq $oseq $gseq $p $uri $is_alive; done | awk '{print NR-1  ">\t" $s}'
+    usd_per_akt="$(curl -s "https://api.coingecko.com/api/v3/simple/price?ids=akash-network&vs_currencies=usd" | jq -r '."akash-network".usd')"
+
+    printf "\trate\tmonthly\tusd\tdseq\toseq\tgseq\tprovider\t\t\t\t\thost\n"
+    echo "$PL" | jq -r '.bids[].bid | [.price.amount, (.bid_id | .dseq, .oseq, .gseq, .provider)] | @tsv' | while read rate dseq oseq gseq p; do uri="$(akash query provider get $p | jq -r '.host_uri' | awk -F/ '{print $3}')"; is_alive=$([ $NO_PROVIDER_PORT_CHECK -ne 1 ] && { nc -z -w1 ${uri//:/\ } && echo OK || echo DEAD;}); price_m=$(echo "scale=2; $rate*((60/6.468)*60*24*30.436875)/10^6" | bc -l | sed 's/^\./0./'); printf "%.2f\t%.2f\t$%.2f\t%s\t%s\t%s\t%s\t%s\t%s\n" $rate $price_m $(echo "$price_m*$usd_per_akt" |bc -l) $dseq $oseq $gseq $p $uri $is_alive; done | awk '{print NR-1  ">\t" $s}'
 
     n_last=$((bids_n-1));
     read -ep "Choose your bid from the list [$n_last]: " n
