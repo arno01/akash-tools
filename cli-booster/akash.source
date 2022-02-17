@@ -1,6 +1,6 @@
-# Akash CLI shell booster 0.3
+# Akash CLI shell booster 0.3.1
 #
-# Date: 16 February 2022
+# Date: 17 February 2022
 # Author: Andy <andrey.arapov@nixaid.com>
 #
 # Make sure you have the following programs installed:
@@ -216,8 +216,10 @@ function akash_close() {
 
   echo "$AKASH_DSEQ deployment has been successfully closed."
   d_echo "Clearing AKASH_DSEQ & AKASH_PROVIDER environment variables"
+  usd_per_akt="$(curl -s "https://api.coingecko.com/api/v3/simple/price?ids=akash-network&vs_currencies=usd" | jq -r '."akash-network".usd')"
   spent=$(akash query deployment get | jq -r '.escrow_account.transferred.amount')
-  i_echo "Total spent for $AKASH_DSEQ: $spent uakt."
+  spent_usd=$(echo "scale=7;($spent/10^6)*$usd_per_akt" | bc -l)
+  i_echo "Total spent for $AKASH_DSEQ: $spent uakt or" $(printf '$%.7f' $spent_usd)
   unset AKASH_DSEQ
   unset AKASH_PROVIDER
   set_ps;
@@ -463,7 +465,7 @@ function akash_shell() {
 function akash_logs() {
   check_envs AKASH_PROVIDER || return 1
 
-  akash provider lease-logs $@
+  akash provider lease-logs -o text $@
 }
 
 function akash_providers() {
