@@ -1,4 +1,4 @@
-# Akash CLI shell booster 0.3.1
+# Akash CLI shell booster 0.3.2
 #
 # Date: 17 February 2022
 # Author: Andy <andrey.arapov@nixaid.com>
@@ -105,7 +105,7 @@ function check_envs() {
 function get_tx_status() {
   TX=$1
   unset rc
-  timeout 15 bash -c -- "
+  timeout 20 bash -c -- "
   while ! akash query tx $TX >/dev/null 2>&1; do
     sleep 3
   done
@@ -141,7 +141,11 @@ function akash_safe_tx() {
       return 1
       ;;
     *)
-      e_echo "Transaction $TX failed with '$rc' code."
+      if [ -z $rc ]; then
+        e_echo "Waiting for the TX: $TX has timed out. It could succeed, so check with 'akash query tx $TX | jq | less' command and if you see code 0 there, then it's good."
+      else
+        e_echo "Transaction $TX failed with '$rc' code."
+      fi
       return 1
       ;;
   esac
