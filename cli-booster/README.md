@@ -8,7 +8,7 @@ Feel free to contribute via pull request!
 
 ## Showcase
 
-[![asciicast](https://asciinema.org/a/lGRpxzmr2JPKICiUaUvqQ2cDG.svg)](https://asciinema.org/a/lGRpxzmr2JPKICiUaUvqQ2cDG)
+[![asciicast](https://asciinema.org/a/uQZd1CmJZrT07xtoUadJBC6Ty.svg)](https://asciinema.org/a/uQZd1CmJZrT07xtoUadJBC6Ty)
 
 ## Pre-requisites
 
