@@ -383,7 +383,7 @@ function akash_balance() {
 }
 
 function akash_mkcert() {
-  akash_safe_tx cert create client -y
+  akash_safe_tx cert generate client -y
 }
 
 function akash_send_manifest() {
