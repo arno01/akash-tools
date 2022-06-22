@@ -1,3 +1,4 @@
+# Simple deployment.
 ---
 version: "2.0"
 
@@ -14,13 +15,16 @@ services:
         as: 80
         to:
           - global: true
+        #accept:
+        #  - "tetris.yourdomain.com"
+
 
 profiles:
   compute:
     app:
       resources:
         cpu:
-          units: 1.0
+          units: 0.5
         memory:
           size: 256Mi
         storage:
@@ -33,7 +37,7 @@ profiles:
       pricing:
         app:
           denom: uakt
-          amount: 100
+          amount: 10000
 
 deployment:
   app:

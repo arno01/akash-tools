@@ -1,48 +1,51 @@
+# Example with 2 placement groups.
 ---
 version: "2.0"
 
 services:
-  app1:
+  app:
     image: bsord/tetris
+    # command:
+    #   - "sh"
+    #   - "-c"
+    # args:
+    #   - sleep infinity
     expose:
       - port: 80
         as: 80
         to:
           - global: true
-  app2:
-    image: bsord/tetris
-    expose:
-      - port: 80
-        as: 80
-        to:
-          - global: true
+        #accept:
+        #  - "tetris.yourdomain.com"
+
 
 profiles:
   compute:
     app:
       resources:
         cpu:
-          units: 1.0
+          units: 0.5
         memory:
           size: 256Mi
         storage:
           size: 256Mi
   placement:
-    akash:
-      #signedBy:
-      #  anyOf:
-      #    - "akash1365yvmc4s7awdyj3n2sav7xfx76adc6dnmlx63"
+    akash1:
       pricing:
         app:
           denom: uakt
-          amount: 100
+          amount: 10000
+    akash2:
+      pricing:
+        app:
+          denom: uakt
+          amount: 10000
 
 deployment:
-  app1:
-    akash:
+  app:
+    akash1:
       profile: app
       count: 1
-  app2:
-    akash:
+    akash2:
       profile: app
       count: 1

@@ -8,7 +8,7 @@ Feel free to contribute via pull request!
 
 ## Showcase
 
-[![asciicast](https://asciinema.org/a/uQZd1CmJZrT07xtoUadJBC6Ty.svg)](https://asciinema.org/a/uQZd1CmJZrT07xtoUadJBC6Ty)
+[![asciicast](https://asciinema.org/a/0OQlVzfiInyH7IuU7FhSQNpeh.svg)](https://asciinema.org/a/0OQlVzfiInyH7IuU7FhSQNpeh)
 
 ## Pre-requisites
 
@@ -22,7 +22,7 @@ Feel free to contribute via pull request!
 - aborts when Akash RPC is 30sec behind the or ahead of time;
 - automatically detects keyring backend;
 - switching between mainnet/edgenet/testnet networks;
-- switching between orders / deployments;
+- switching between orders / deployments / placement groups;
 - shows detailed TX error for every `akash tx` command;
 - shows provider `host_uri` and is checking their liveness;
 
@@ -136,14 +136,6 @@ To enable debugging level:
 
 ```
 export LOGLEVEL=3
-```
-
-## Disable provider port check
-
-Not recommended, but can accelerate `akash_accept` when displaying the bids:
-
-```
-export NO_PROVIDER_PORT_CHECK=1
 ```
 
 ## FAQ
