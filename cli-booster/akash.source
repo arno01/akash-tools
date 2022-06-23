@@ -8,6 +8,9 @@
 #
 #
 
+# to avoid "printf: 105.23: invalid number" errors
+export LC_NUMERIC=en_US.UTF-8
+
 export LOGLEVEL=${LOGLEVEL:-2} # 1 ERROR, 2 INFO (default), 3 DEBUG
 
 export AKASH_BROADCAST_MODE=sync
