@@ -696,7 +696,8 @@ function set_net() {
 
 ## SCRIPT STARTS HERE
 
-check_envs AKASH_OWNER AKASH_FROM || auto_select_key;
-export AKASH_FROM
+unset AKASH_FROM
+unset AKASH_OWNER
+auto_select_key;
 
 set_net
