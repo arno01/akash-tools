@@ -532,7 +532,7 @@ function akash_balance() {
 }
 
 function akash_mkcert() {
-  akash cert generate client -y
+  akash tx cert generate client -y
   akash_safe_tx cert publish client -y
 }
 
