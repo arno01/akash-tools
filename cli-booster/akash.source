@@ -14,6 +14,7 @@ export LC_NUMERIC=en_US.UTF-8
 export LOGLEVEL=${LOGLEVEL:-2} # 1 ERROR, 2 INFO (default), 3 DEBUG
 
 export AKASH_BROADCAST_MODE=sync
+export AP_BROADCAST_MODE=$AKASH_BROADCAST_MODE
 # block: the CLI waits for the tx to be committed in a block.
 # sync: the CLI waits for a CheckTx execution response only.
 # async: the CLI returns immediately (transaction might fail).
@@ -24,19 +25,26 @@ export AKASH_BROADCAST_MODE=sync
 # also use --gas-prices=0.025uakt
 # --gas - gas limit to set per-transaction; set to "auto" to calculate sufficient gas automatically (default 200000)
 export AKASH_GAS=auto
+export AP_GAS=$AKASH_GAS
 export AKASH_GAS_PRICES=0.025uakt
+export AP_GAS_PRICES=$AKASH_GAS_PRICES
 # --gas-adjustment - adjustment factor to be multiplied against the estimate returned by the tx simulation.
 #                    if the gas limit is set manually this flag is ignored.
 # increase this parameter if you see "Out of gas" errors often.
 export AKASH_GAS_ADJUSTMENT=1.5
+export AP_GAS_ADJUSTMENT=$AKASH_GAS_ADJUSTMENT
 
 export AKASH_OUTPUT=json # default: text
+export AP_OUTPUT=$AKASH_OUTPUT
 
 # will get auto-detected
 #export AKASH_KEYRING_BACKEND=os # file
+#export AP_KEYRING_BACKEND=$AKASH_KEYRING_BACKEND
 
 export AKASH_PAGE=1
+export AP_PAGE=$AKASH_PAGE
 export AKASH_LIMIT=100
+export AP_LIMIT=$AKASH_LIMIT
 
 function d_echo() {
   [[ "$LOGLEVEL" -ge "3" ]] || return 0
@@ -56,11 +64,13 @@ function e_echo() {
 function set_rpc() {
   GOOD_RPC="$(curl -s "$AKASH_NET/rpc-nodes.txt" | while read url; do RESP="$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 1 --max-time 1 "$url")"; [[ 200 -eq $RESP ]] && echo "$url"; done)"
   export AKASH_NODE="$(echo "$GOOD_RPC" | shuf -n 1)"
-  NET_ID=$(akash status 2>/dev/null | jq -r '.NodeInfo.network')
+  export AP_NODE=$AKASH_NODE
+  NET_ID=$($AKASH_BIN_MN3 status 2>/dev/null | jq -r '.NodeInfo.network')
   if [[ $NET_ID != $AKASH_CHAIN_ID ]]; then
     e_echo "AKASH_CHAIN_ID '$AKASH_CHAIN_ID' does not match what Akash RPC $AKASH_NODE has: '$NET_ID'!";
     e_echo "Run set_rpc or source me again."
     unset AKASH_NODE
+    unset AP_NODE
     return 1
   fi
 
@@ -70,7 +80,7 @@ function set_rpc() {
 }
 
 function check_rpc() {
-  DATE_AKASH=$(akash status | jq -r '.SyncInfo.latest_block_time')
+  DATE_AKASH=$($AKASH_BIN_MN3 status | jq -r '.SyncInfo.latest_block_time')
   TS_AKASH=$(date +%s --date "$DATE_AKASH")
   TS=$(date +%s)
   DIFF=$(echo "$TS - $TS_AKASH" | bc)
@@ -78,11 +88,13 @@ function check_rpc() {
     e_echo "Akash RPC $AKASH_NODE is running $DIFF seconds behind."
     echo "ACTION: Please source me (or run set_rpc) command again."
     unset AKASH_NODE
+    unset AP_NODE
     return 1
   elif [ $DIFF -lt -30 ]; then
     e_echo "Akash RPC $AKASH_NODE is running $DIFF seconds ahead."
     echo "ACTION: Make sure your system time is synchronized."
     unset AKASH_NODE
+    unset AP_NODE
     return 1
   else
     d_echo "Last block Akash RPC $AKASH_NODE seen was $DIFF seconds ago => OK"
@@ -114,19 +126,19 @@ function get_tx_status() {
   TX=$1
   unset rc
   timeout 20 bash -c -- "
-  while ! akash query tx $TX >/dev/null 2>&1; do
+  while ! $AKASH_BIN query tx $TX >/dev/null 2>&1; do
     sleep 3
   done
   "
-  rc=$(akash query tx $TX 2>/dev/null | jq -r '.code')
+  rc=$($AKASH_BIN query tx $TX 2>/dev/null | jq -r '.code')
   echo $rc
   #return $rc
 }
 
 # like 'akash tx' but with a follow-up
 function akash_safe_tx() {
-  i_echo "Broadcasting 'akash $@' transaction..."
-  TX=$(akash tx $@ | jq -r '.txhash')
+  i_echo "Broadcasting '$AKASH_BIN $@' transaction..."
+  TX=$($AKASH_BIN tx $@ | jq -r '.txhash')
   if [ -z "$TX" ]; then
     e_echo "Failed to obtain TX hash. Possible reasons are:"
     e_echo "- see the rpc error message above"
@@ -146,12 +158,12 @@ function akash_safe_tx() {
       ;;
     11)
       e_echo "Out of gas! Consider raising AKASH_GAS_ADJUSTMENT and trying again."
-      e_echo "$(akash query tx $TX | jq -r '.raw_log')"
+      e_echo "$($AKASH_BIN query tx $TX | jq -r '.raw_log')"
       return 1
       ;;
     *)
       if [ -z $rc ]; then
-        e_echo "Waiting for the TX: $TX has timed out. It could succeed, so check with 'akash query tx $TX | jq | less' command and if you see code 0 there, then it's good."
+        e_echo "Waiting for the TX: $TX has timed out. It could succeed, so check with '$AKASH_BIN query tx $TX | jq | less' command and if you see code 0 there, then it's good."
       else
         e_echo "Transaction $TX failed with '$rc' code."
       fi
@@ -165,10 +177,11 @@ function akash_deploy() {
 
   # default to 1 if not exported.
   export AKASH_OSEQ=${AKASH_OSEQ:-1}
+  export AP_OSEQ=$AKASH_OSEQ
 
   # Make sure you have the cert
   # TODO: add cert validity check, serial match + cert presence (~/.akash/<name>.pem)
-  CL="$(akash query cert list 2>/dev/null)"
+  CL="$($AKASH_BIN query cert list 2>/dev/null)"
   rc=$?
   if [ "$rc" -ne "0" ]; then
     e_echo "Error. Make sure you are using the correct Akash version for $AKASH_CHAIN_ID network."
@@ -188,9 +201,11 @@ function akash_deploy() {
   fi
 
   export -n AKASH_DSEQ
+  export -n AP_DSEQ
   TX=$(akash_safe_tx deployment create -y $1) # | jq -r '.txhash')
   rc=$?
   export AKASH_DSEQ
+  export AP_DSEQ
   if [ "$rc" -ne "0" ]; then
     e_echo "- issue in the Akash deployment manifest '$1'"
     e_echo "- certificate has not been committed to blockchain"
@@ -199,7 +214,8 @@ function akash_deploy() {
     return 1
   fi
 
-  AKASH_DSEQ=$(akash query tx $TX | jq -r '.tx.body.messages[].id.dseq')
+  AKASH_DSEQ=$($AKASH_BIN query tx $TX | jq -r '.tx.body.messages[].id.dseq')
+  AP_DSEQ=$AKASH_DSEQ
   if [ -z "$AKASH_DSEQ" ]; then
     e_echo "Failed to obtain AKASH_DSEQ"
     return 1
@@ -208,6 +224,7 @@ function akash_deploy() {
   d_echo "Deployment request $AKASH_DSEQ broadcasted to the Akash $AKASH_CHAIN_ID chain!"
   d_echo "AKASH_DSEQ=$AKASH_DSEQ"
   export AKASH_DSEQ
+  export AP_DSEQ
   set_ps $AKASH_DSEQ-$AKASH_GSEQ-$AKASH_OSEQ;
 }
 
@@ -222,7 +239,8 @@ function akash_update() {
 
 function akash_close_deployment() {
   check_envs AKASH_DSEQ || return 1
-  akash query deployment get | jq -r '.deployment.state' | grep -qw closed && { echo "$AKASH_DSEQ is already closed."; return 0; }
+  check_envs AP_DSEQ || return 1
+  $AKASH_BIN query deployment get | jq -r '.deployment.state' | grep -qw closed && { echo "$AKASH_DSEQ is already closed."; return 0; }
 
   TX=$(akash_safe_tx deployment close -y) # | jq -r '.txhash')
   rc=$?
@@ -232,7 +250,7 @@ function akash_close_deployment() {
 
   echo "$AKASH_DSEQ/$AKASH_OSEQ deployment has been successfully closed."
   usd_per_akt="$(get_akt_price)"
-  spent=$(akash query deployment get | jq -r '.escrow_account.transferred.amount')
+  spent=$($AKASH_BIN query deployment get | jq -r '.escrow_account.transferred.amount')
   spent_usd=$(echo "scale=7;($spent/10^6)*$usd_per_akt" | bc -l)
   i_echo "Total $spent uakt or" $(printf '$%.7f' $spent_usd)
 
@@ -241,13 +259,17 @@ function akash_close_deployment() {
   unset AKASH_GSEQ
   unset AKASH_DSEQ
   unset AKASH_PROVIDER
+  unset AP_OSEQ
+  unset AP_GSEQ
+  unset AP_DSEQ
+  unset AP_PROVIDER
   set_ps;
 }
 
 function akash_close_gseq() {
   echo "$AKASH_DSEQ/$AKASH_GSEQ/$AKASH_OSEQ group has been successfully closed."
   usd_per_akt="$(get_akt_price)"
-  spent=$(akash query deployment get | jq -r '.escrow_account.transferred.amount')
+  spent=$($AKASH_BIN query deployment get | jq -r '.escrow_account.transferred.amount')
   spent_usd=$(echo "scale=7;($spent/10^6)*$usd_per_akt" | bc -l)
   i_echo "Spent $spent uakt or" $(printf '$%.7f' $spent_usd)
 
@@ -256,14 +278,19 @@ function akash_close_gseq() {
   unset AKASH_GSEQ
   unset AKASH_DSEQ
   unset AKASH_PROVIDER
+  unset AP_OSEQ
+  unset AP_GSEQ
+  unset AP_DSEQ
+  unset AP_PROVIDER
   set_ps;
 }
 
 function akash_close() {
   check_envs AKASH_DSEQ || return 1
-  akash query deployment get | jq -r '.deployment.state' | grep -qw closed && { echo "$AKASH_DSEQ is already closed."; return 0; }
+  check_envs AP_DSEQ || return 1
+  $AKASH_BIN query deployment get | jq -r '.deployment.state' | grep -qw closed && { echo "$AKASH_DSEQ is already closed."; return 0; }
 
-  DL="$(akash query deployment list)"
+  DL="$($AKASH_BIN query deployment list)"
   groups_n="$(echo $DL | jq -r '[.deployments[].groups[].group_id.gseq] | length')"
 
   if [[ $groups_n -gt 1 ]]; then
@@ -277,7 +304,9 @@ function akash_close() {
       akash_close_deployment;
     else
       AKASH_DSEQ=$(echo "$DL"| jq -r --argjson g $group '.deployments[].groups[$g].group_id.dseq')
+      AP_DSEQ=$AKASH_DSEQ
       AKASH_GSEQ=$(echo "$DL"| jq -r --argjson g $group '.deployments[].groups[$g].group_id.gseq')
+      AP_GSEQ=$AKASH_GSEQ
       TX=$(akash_safe_tx deployment group close -y) # | jq -r '.txhash')
       rc=$?
       if [ "$rc" -ne "0" ]; then
@@ -297,12 +326,18 @@ function akash_deployments() {
   # open == active deployments can remain open indefinitely, until their owner closes them.
   # open deployments != active leases!
   export -n AKASH_DSEQ
+  export -n AP_DSEQ
   #export -n AKASH_GSEQ
+  #export -n AP_GSEQ
   #export -n AKASH_OSEQ
+  #export -n AP_OSEQ
   DL="$(akash query deployment list --state active)"
   export AKASH_DSEQ
   export AKASH_GSEQ
   export AKASH_OSEQ
+  export AP_DSEQ
+  export AP_GSEQ
+  export AP_OSEQ
   deployments_n="$(echo "$DL" | jq -r '[.deployments[]] | length')"
   if [[ "$deployments_n" -eq 0 ]]; then
     echo "Unable to find any active deployments."
@@ -337,6 +372,9 @@ function akash_deployments() {
   AKASH_DSEQ=$(echo "$DL"| jq -r --argjson n $deployment --argjson g $group '.deployments[$n].groups[$g].group_id.dseq')
   AKASH_GSEQ=$(echo "$DL"| jq -r --argjson n $deployment --argjson g $group '.deployments[$n].groups[$g].group_id.gseq')
   AKASH_OSEQ=1
+  AP_DSEQ=$AKASH_DSEQ
+  AP_GSEQ=$AKASH_GSEQ
+  AP_OSEQ=$AKASH_OSEQ
   if [ -z "$AKASH_DSEQ" ]; then
     echo "Unable to find most recent active deployment."
     return 1
@@ -358,10 +396,16 @@ function akash_orders() {
   export -n AKASH_DSEQ
   export -n AKASH_GSEQ
   export -n AKASH_OSEQ
-  OL="$(akash query market order list --state open --gseq 0 --oseq 0)"
+  export -n AP_DSEQ
+  export -n AP_GSEQ
+  export -n AP_OSEQ
+  OL="$($AKASH_BIN query market order list --state open --gseq 0 --oseq 0)"
   export AKASH_DSEQ
   export AKASH_GSEQ
   export AKASH_OSEQ
+  export AP_DSEQ
+  export AP_GSEQ
+  export AP_OSEQ
   orders_n="$(echo "$OL" | jq -r '.orders | length')"
   if [[ "$orders_n" -eq 0 ]]; then
     echo "Unable to find any open orders."
@@ -378,9 +422,13 @@ function akash_orders() {
     return 1
   fi
   #export AKASH_PROVIDER=$(echo "$PL" | jq -r --arg n $n '.bids['$n'].bid.bid_id.provider')
+  #export AP_PROVIDER=$AKASH_PROVIDER
   AKASH_DSEQ=$(echo "$OL"| jq -r --arg n $n '.orders['$n'].order_id.dseq')
   AKASH_GSEQ=$(echo "$OL"| jq -r --arg n $n '.orders['$n'].order_id.gseq')
   AKASH_OSEQ=$(echo "$OL"| jq -r --arg n $n '.orders['$n'].order_id.oseq')
+  AP_DSEQ=$AKASH_DSEQ
+  AP_GSEQ=$AKASH_GSEQ
+  AP_OSEQ=$AKASH_OSEQ
   if [ -z "$AKASH_DSEQ" ]; then
     echo "Unable to find most recent active deployment."
     return 1
@@ -393,21 +441,26 @@ function akash_orders() {
 }
 
 function akash_getdeployment() {
-  akash query deployment get -o text
+  $AKASH_BIN query deployment get -o text
 }
 
 function akash_status() {
   akash_findprovider
 
-  akash provider lease-status
+  $AKASH_BIN ${PRE_MAINNET4_PROVIDER_CMD} lease-status
   export -n AKASH_PROVIDER
+  export -n AP_PROVIDER
 }
 
 function akash_findprovider() {
   export -n AKASH_PROVIDER
+  export -n AP_PROVIDER
   AKASH_GSEQ=${AKASH_GSEQ:-1}
-  AKASH_PROVIDER=$(akash query market lease list --gseq 0 --oseq 0 | jq -r --argjson g $AKASH_GSEQ '.leases[].lease.lease_id | select(.gseq == $g) | .provider')
+  AKASH_PROVIDER=$($AKASH_BIN query market lease list --gseq 0 --oseq 0 | jq -r --argjson g $AKASH_GSEQ '.leases[].lease.lease_id | select(.gseq == $g) | .provider')
+  AP_GSEQ=$AKASH_GSEQ
+  AP_PROVIDER=$AKASH_PROVIDER
   export AKASH_PROVIDER
+  export AP_PROVIDER
   if [ -z "$AKASH_PROVIDER" ]; then
     echo "Unable to locate last active lease. It could be that it has never been created."
     return 1
@@ -417,9 +470,12 @@ function akash_findprovider() {
 
 function akash_leases() {
   check_envs AKASH_DSEQ || return 1
+  check_envs AP_DSEQ || return 1
   export -n AKASH_PROVIDER
-  akash query market lease list | jq -r '.leases[] | [ (.lease | (.lease_id | .provider, .owner, .dseq, .gseq, .oseq), (.price.amount|tonumber), .state), (.escrow_payment | .state, (.balance.amount, .withdrawn.amount)) ] | @csv'
+  export -n AP_PROVIDER
+  $AKASH_BIN query market lease list | jq -r '.leases[] | [ (.lease | (.lease_id | .provider, .owner, .dseq, .gseq, .oseq), (.price.amount|tonumber), .state), (.escrow_payment | .state, (.balance.amount, .withdrawn.amount)) ] | @csv'
   export AKASH_PROVIDER
+  export AP_PROVIDER
 }
 
 function akash_leases_all() {
@@ -427,12 +483,20 @@ function akash_leases_all() {
   export -n AKASH_DSEQ
   export -n AKASH_GSEQ
   export -n AKASH_OSEQ
+  export -n AP_PROVIDER
+  export -n AP_DSEQ
+  export -n AP_GSEQ
+  export -n AP_OSEQ
   echo "List of all active leases:"
-  akash query market lease list --state active | jq -r '.leases[] | [ (.lease | (.lease_id | .provider, .owner, .dseq, .gseq, .oseq), (.price.amount|tonumber), .state), (.escrow_payment | .state, (.balance.amount, .withdrawn.amount)) ] | @csv'
+  $AKASH_BIN query market lease list --state active | jq -r '.leases[] | [ (.lease | (.lease_id | .provider, .owner, .dseq, .gseq, .oseq), (.price.amount|tonumber), .state), (.escrow_payment | .state, (.balance.amount, .withdrawn.amount)) ] | @csv'
   export AKASH_PROVIDER
   export AKASH_DSEQ
   export AKASH_GSEQ
   export AKASH_OSEQ
+  export AP_PROVIDER
+  export AP_DSEQ
+  export AP_GSEQ
+  export AP_OSEQ
 }
 
 function get_akt_price() {
@@ -474,8 +538,9 @@ function get_akt_price() {
 
 function akash_accept() {
   check_envs AKASH_DSEQ || return 1
+  check_envs AP_DSEQ || return 1
 
-  PL="$(akash query market bid list --state open --gseq 0 --oseq 0)"
+  PL="$($AKASH_BIN query market bid list --state open --gseq 0 --oseq 0)"
   bids_n="$(echo "$PL" | jq -r '.bids | length')"
   if [[ "$bids_n" -le 0 ]]; then
     echo "Unable to find any bids. Try re-running in few seconds."
@@ -484,7 +549,7 @@ function akash_accept() {
 
   usd_per_akt="$(get_akt_price)"
 
-  PROVIDERS="$(akash query provider list --page 1 --limit 1000)"
+  PROVIDERS="$($AKASH_BIN query provider list --page 1 --limit 1000)"
   printf "\trate\tmonthly\tusd\tdseq/gseq/oseq\tprovider\t\t\t\t\thost\n"
   echo "$PL" | jq -r '.bids[].bid | [.price.amount, (.bid_id | .dseq, .gseq, .oseq, .provider)] | @tsv' | while read rate dseq gseq oseq p; do
     uri="$(echo $PROVIDERS | jq --arg p $p -r '.providers[] | select(.owner == $p) | .host_uri' | awk -F/ '{print $3}')"
@@ -503,6 +568,9 @@ function akash_accept() {
   AKASH_PROVIDER=$(echo "$PL" | jq -r --arg n $n '.bids['$n'].bid.bid_id.provider')
   AKASH_GSEQ=$(echo "$PL" | jq -r --arg n $n '.bids['$n'].bid.bid_id.gseq')
   AKASH_OSEQ=$(echo "$PL" | jq -r --arg n $n '.bids['$n'].bid.bid_id.oseq')
+  AP_PROVIDER=$AKASH_PROVIDER
+  AP_GSEQ=$AKASH_GSEQ
+  AP_OSEQ=$AKASH_OSEQ
 
   if [ -z "$AKASH_PROVIDER" ]; then
     e_echo "Could not find the provider. Most likely Akash RPC issues. Try to rerun this command or change Akash RPC node."
@@ -514,8 +582,11 @@ function akash_accept() {
   export AKASH_PROVIDER
   export AKASH_GSEQ
   export AKASH_OSEQ
+  export AP_PROVIDER
+  export AP_GSEQ
+  export AP_OSEQ
   set_ps $AKASH_DSEQ-$AKASH_GSEQ-$AKASH_OSEQ;
-  PL="$(akash query market bid list --state open --gseq 0 --oseq 0)"
+  PL="$($AKASH_BIN query market bid list --state open --gseq 0 --oseq 0)"
   bids_n="$(echo "$PL" | jq -r '.bids | length')"
   if [[ "$bids_n" -le 0 ]]; then
     echo "Unable to find any bids. Try re-running in few seconds."
@@ -525,10 +596,11 @@ function akash_accept() {
   akash_safe_tx market lease create -y
 
   export -n AKASH_PROVIDER
+  export -n AP_PROVIDER
 }
 
 function akash_balance() {
-  akash query bank balances "$AKASH_OWNER" | jq -r '(.balances[0].amount | tonumber / pow(10; 6))'
+  $AKASH_BIN query bank balances "$AKASH_OWNER" | jq -r '(.balances[0].amount | tonumber / pow(10; 6))'
 }
 
 function akash_mkcert() {
@@ -542,7 +614,8 @@ function akash_send_manifest() {
   rc=1
   akash_findprovider;
   check_envs AKASH_PROVIDER AKASH_DSEQ AKASH_GSEQ AKASH_OSEQ || return 1;
-  LEASE_STATE="$(akash query market lease get | jq -r '.lease.state')"
+  check_envs AP_PROVIDER AP_DSEQ AP_GSEQ AP_OSEQ || return 1;
+  LEASE_STATE="$($AKASH_BIN query market lease get | jq -r '.lease.state')"
   case $LEASE_STATE in
     "")
       e_echo "Something went wrong and should not have happened."
@@ -550,10 +623,10 @@ function akash_send_manifest() {
       e_echo "provider: $AKASH_PROVIDER owner: $AKASH_OWNER dseq: $AKASH_DSEQ gseq: $AKASH_GSEQ oseq: $AKASH_OSEQ tx: $TX"
       ;;
     active)
-      akash provider send-manifest $1
+      $AKASH_BIN ${PRE_MAINNET4_PROVIDER_CMD} send-manifest $1
       rc=$?
       if [ "$rc" -ne "0" ]; then
-        e_echo "akash provider send-manifest failed with '$rc' code."
+        e_echo "$AKASH_BIN ${PRE_MAINNET4_PROVIDER_CMD} send-manifest failed with '$rc' code."
         rc=1
       fi
       ;;
@@ -564,6 +637,7 @@ function akash_send_manifest() {
   esac
 
   export -n AKASH_PROVIDER
+  export -n AP_PROVIDER
 
   return $rc
 }
@@ -582,7 +656,7 @@ function akash_shell() {
 
   arg1=$1
 
-  LS="$(akash provider lease-status)"
+  LS="$($AKASH_BIN ${PRE_MAINNET4_PROVIDER_CMD} lease-status)"
   echo "$LS" | jq -r '.services[].name' | grep -qw $arg1
   rc=$?
   # if arg1 not found in the deployment, assume it is a command
@@ -599,6 +673,7 @@ function akash_shell() {
       if (($n < 0 || $n > $n_last)); then
         e_echo "Value '$n' is outside the 0..${n_last} range."
         export -n AKASH_PROVIDER
+        export -n AP_PROVIDER
         return 1
       fi
       SVC=$(echo "$LS" | jq -r --arg n $n '[.services[].name]['$n']')
@@ -611,49 +686,61 @@ function akash_shell() {
   fi
 
   #set -x
-  akash provider lease-shell --tty --stdin -- "$SVC" "${@}"
+  $AKASH_BIN ${PRE_MAINNET4_PROVIDER_CMD} lease-shell --tty --stdin -- "$SVC" "${@}"
   #set +x
   rc=$?
   if [ "$rc" -eq "0" ]; then
     set_ps $AKASH_DSEQ-$AKASH_GSEQ-$AKASH_OSEQ-$SVC;
   fi
   export -n AKASH_PROVIDER
+  export -n AP_PROVIDER
 }
 
 function akash_logs() {
   akash_findprovider
 
-  akash provider lease-logs -o text $@
+  $AKASH_BIN ${PRE_MAINNET4_PROVIDER_CMD} lease-logs -o text $@
   export -n AKASH_PROVIDER
+  export -n AP_PROVIDER
 }
 
 function akash_events() {
   akash_findprovider
 
-  akash provider lease-events $@
+  $AKASH_BIN ${PRE_MAINNET4_PROVIDER_CMD} lease-events $@
   export -n AKASH_PROVIDER
+  export -n AP_PROVIDER
 }
 
 function akash_providers() {
   export -n AKASH_PROVIDER
-  akash query provider list --limit 500 | jq -r '.providers[] | [ .host_uri, .owner, .attributes[].value ] | @csv' | sort -d
+  export -n AP_PROVIDER
+  $AKASH_BIN query provider list --limit 500 | jq -r '.providers[] | [ .host_uri, .owner, .attributes[].value ] | @csv' | sort -d
   export AKASH_PROVIDER
+  export AP_PROVIDER
 }
 
 function akash_provider() {
   check_envs AKASH_PROVIDER || return 1
-  akash query provider get $AKASH_PROVIDER | jq
+  check_envs AP_PROVIDER || return 1
+  $AKASH_BIN query provider get $AKASH_PROVIDER | jq
 }
 
 function detect_keyring_backend() {
   i_echo "Detecting keyring backend..."
   # a very simple method based on the keys amount :-)
   export -n AKASH_KEYRING_BACKEND
-  os_l=$(AKASH_KEYRING_BACKEND=os akash keys list | jq -r '. | length')
-  file_l=$(AKASH_KEYRING_BACKEND=file akash keys list | jq -r '. | length')
-  [[ $os_l -ge $file_l ]] && AKASH_KEYRING_BACKEND=os || AKASH_KEYRING_BACKEND=file
+  export -n AP_KEYRING_BACKEND
+  os_l=$(AKASH_KEYRING_BACKEND=os AP_KEYRING_BACKEND=os $AKASH_BIN keys list | jq -r '. | length')
+  file_l=$(AKASH_KEYRING_BACKEND=file AP_KEYRING_BACKEND=file $AKASH_BIN keys list | jq -r '. | length')
+  test_l=$(AKASH_KEYRING_BACKEND=test AP_KEYRING_BACKEND=test $AKASH_BIN keys list | jq -r '. | length')
+  # TODO: need to improve the logic here
+  [[ $os_l -ge $test_l ]] && AKASH_KEYRING_BACKEND=os || AKASH_KEYRING_BACKEND=test
+  [[ $file_l -ge $test_l ]] && AKASH_KEYRING_BACKEND=file
+  AP_KEYRING_BACKEND=$AKASH_KEYRING_BACKEND
   echo "AKASH_KEYRING_BACKEND=$AKASH_KEYRING_BACKEND"
   export AKASH_KEYRING_BACKEND
+  export AP_KEYRING_BACKEND
 }
 
 function auto_select_key() {
@@ -661,7 +748,7 @@ function auto_select_key() {
 
   detect_keyring_backend;
 
-  KL=$(akash keys list)
+  KL=$($AKASH_BIN keys list)
   keys_n=$(echo "$KL" | jq -r '. | length')
   if [[ "$keys_n" -eq 0 ]]; then
     echo "Unable to find any key with AKASH_KEYRING_BACKEND=$AKASH_KEYRING_BACKEND"
@@ -678,8 +765,10 @@ function auto_select_key() {
     e_echo "Value '$n' is outside the 0..${n_last} range."
     return 1
   fi
-  export AKASH_FROM="$(akash keys list | jq -r --arg n $n '.['$n'] | .name')"
-  export AKASH_OWNER="$(akash keys list | jq -r --arg n $n '.['$n'] | .address')"
+  export AKASH_FROM="$($AKASH_BIN keys list | jq -r --arg n $n '.['$n'] | .name')"
+  export AKASH_OWNER="$($AKASH_BIN keys list | jq -r --arg n $n '.['$n'] | .address')"
+  export AP_FROM=$AKASH_FROM
+  export AP_OWNER=$AKASH_OWNER
   set_ps;
 }
 
@@ -690,6 +779,7 @@ function set_net() {
   
   AKASH_NET="https://raw.githubusercontent.com/ovrclk/net/master/$NET"
   export AKASH_CHAIN_ID="$(curl -s "$AKASH_NET/chain-id.txt")"
+  export AP_CHAIN_ID="$AKASH_CHAIN_ID"
   [ -z "$AKASH_NODE" ] && set_rpc;
   #set_ps "$AKASH_NODE][$AKASH_FROM";
 }
@@ -698,6 +788,20 @@ function set_net() {
 
 unset AKASH_FROM
 unset AKASH_OWNER
+unset AP_FROM
+unset AP_OWNER
+
+if [[ "$NET" == "edgenet" ]]; then
+  #mv /usr/local/bin/akash /usr/local/bin/akash.1
+  #mv /usr/local/bin/provider-services /usr/local/bin/akash
+  export AKASH_BIN="provider-services"
+  export PRE_MAINNET4_PROVIDER_CMD=""
+else
+  export AKASH_BIN="akash"
+  export PRE_MAINNET4_PROVIDER_CMD="provider"
+fi
+export AKASH_BIN_MN3="akash"
+
 auto_select_key;
 
 set_net
