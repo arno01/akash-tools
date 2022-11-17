@@ -56,7 +56,7 @@ function e_echo() {
 function set_rpc() {
   GOOD_RPC="$(curl -s "$AKASH_NET/rpc-nodes.txt" | while read url; do RESP="$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 1 --max-time 1 "$url")"; [[ 200 -eq $RESP ]] && echo "$url"; done)"
   export AKASH_NODE="$(echo "$GOOD_RPC" | shuf -n 1)"
-  NET_ID=$($AKASH_BIN_MN3 status 2>/dev/null | jq -r '.NodeInfo.network')
+  NET_ID=$(curl -s "$AKASH_NODE/status" | jq -r '.result.node_info.network')
   if [[ $NET_ID != $AKASH_CHAIN_ID ]]; then
     e_echo "AKASH_CHAIN_ID '$AKASH_CHAIN_ID' does not match what Akash RPC $AKASH_NODE has: '$NET_ID'!";
     e_echo "Run set_rpc or source me again."
@@ -70,7 +70,7 @@ function set_rpc() {
 }
 
 function check_rpc() {
-  DATE_AKASH=$($AKASH_BIN_MN3 status | jq -r '.SyncInfo.latest_block_time')
+  DATE_AKASH=$(curl -s "$AKASH_NODE/status" | jq -r '.result.sync_info.latest_block_time')
   TS_AKASH=$(date +%s --date "$DATE_AKASH")
   TS=$(date +%s)
   DIFF=$(echo "$TS - $TS_AKASH" | bc)
@@ -702,14 +702,11 @@ function set_net() {
 unset AKASH_FROM
 unset AKASH_OWNER
 
-if [[ "$NET" == "edgenet" ]]; then
-  export AKASH_BIN="provider-services"
-  export PRE_MAINNET4_PROVIDER_CMD=""
-else
-  export AKASH_BIN="akash"
-  export PRE_MAINNET4_PROVIDER_CMD="provider"
-fi
-export AKASH_BIN_MN3="akash"
+export AKASH_BIN="provider-services"
+export PRE_MAINNET4_PROVIDER_CMD=""
+# Pre-mainnet4 config
+# export AKASH_BIN="akash"
+# export PRE_MAINNET4_PROVIDER_CMD="provider"
 
 auto_select_key;
 
