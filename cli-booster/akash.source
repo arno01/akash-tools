@@ -299,7 +299,7 @@ function akash_deployments() {
   export -n AKASH_DSEQ
   #export -n AKASH_GSEQ
   #export -n AKASH_OSEQ
-  DL="$(akash query deployment list --state active)"
+  DL="$($AKASH_BIN query deployment list --state active)"
   export AKASH_DSEQ
   export AKASH_GSEQ
   export AKASH_OSEQ
