@@ -530,7 +530,29 @@ function akash_accept() {
 }
 
 function akash_balance() {
-  $AKASH_BIN query bank balances "$AKASH_OWNER" | jq -r '(.balances[0].amount | tonumber / pow(10; 6))'
+  # Get balance data
+  query_result=$($AKASH_BIN query bank balances "$AKASH_OWNER")
+
+  # Loop through each balance
+  echo "$query_result" | jq -c '.balances[]' | while read -r line; do
+    # Extract denom and amount
+    denom=$(echo "$line" | jq -r '.denom')
+    amount=$(echo "$line" | jq -r '.amount')
+
+    # Check if denom is an ibc denom
+    if [[ $denom == ibc/* ]]; then
+      # Get base denom
+      base_denom=$($AKASH_BIN query ibc-transfer denom-trace "$denom" | jq -r '.denom_trace.base_denom')
+      # Print base denom instead of full denom, if base_denom exists
+      if [ ! -z "$base_denom" ]; then
+        denom="$base_denom"
+      fi
+    fi
+
+    # Convert amount and print
+    converted_amount=$(echo "$amount / 1000000" | bc -l)
+    printf "%s: %.6f\n" "$denom" "$converted_amount"
+  done
 }
 
 function akash_mkcert() {
