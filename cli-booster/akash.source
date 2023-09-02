@@ -165,6 +165,20 @@ function akash_deploy() {
   shift
   [ ! -f $sdl ] || [ -z $sdl ] && { e_echo "Specify deployment file"; return 1; }
 
+  # Parse --deposit argument, if present, to get the denom
+  deposit_denom=""
+  for arg in "$@"; do
+    if [[ $arg == --deposit=* ]]; then
+      deposit_denom=$(echo $arg | cut -d '=' -f 2 | sed 's/[^a-zA-Z0-9\/]//g')
+      break
+    fi
+  done
+
+  # Convert to base_denom if it's an ibc denom
+  if [[ $deposit_denom == ibc/* ]]; then
+    deposit_denom=$($AKASH_BIN query ibc-transfer denom-trace "$deposit_denom" | jq -r '.denom_trace.base_denom')
+  fi
+
   # default to 1 if not exported.
   export AKASH_OSEQ=${AKASH_OSEQ:-1}
 
@@ -183,7 +197,13 @@ function akash_deploy() {
     return 1
   fi
 
-  B=$(akash_balance);
+  # Call akash_balance with the base_denom if it exists
+  if [ -n "$deposit_denom" ]; then
+    B=$(akash_balance $deposit_denom)
+  else
+    B=$(akash_balance uakt)
+  fi
+
   if (( $(echo "$B < 5.5" | bc) )); then
     e_echo "Your $AKASH_OWNER account has low balance, make sure to have at least 5.5 AKT."
     return 1
@@ -530,6 +550,9 @@ function akash_accept() {
 }
 
 function akash_balance() {
+  # The desired base_denom is passed as an argument, if any
+  desired_base_denom=$1
+
   # Get balance data
   query_result=$($AKASH_BIN query bank balances "$AKASH_OWNER")
 
@@ -543,15 +566,25 @@ function akash_balance() {
     if [[ $denom == ibc/* ]]; then
       # Get base denom
       base_denom=$($AKASH_BIN query ibc-transfer denom-trace "$denom" | jq -r '.denom_trace.base_denom')
-      # Print base denom instead of full denom, if base_denom exists
-      if [ ! -z "$base_denom" ]; then
-        denom="$base_denom"
-      fi
+    else
+      # If it's not an ibc denom, base_denom is the same as denom
+      base_denom=$denom
     fi
 
-    # Convert amount and print
+    # Convert amount
     converted_amount=$(echo "$amount / 1000000" | bc -l)
-    printf "%s: %.6f\n" "$denom" "$converted_amount"
+    converted_amount=$(printf "%.6f" "$converted_amount")
+
+    # If the function has a desired_base_denom argument
+    if [ -n "$desired_base_denom" ]; then
+      if [ "$base_denom" == "$desired_base_denom" ]; then
+        echo "$converted_amount"
+        return 0  # Exit after printing the amount
+      fi
+    else
+      # If no argument was provided, print all balances
+      echo "$base_denom: $converted_amount"
+    fi
   done
 }
 
