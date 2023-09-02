@@ -161,7 +161,9 @@ function akash_safe_tx() {
 }
 
 function akash_deploy() {
-  [ ! -f $1 ] || [ -z $1 ] && { e_echo "Specify deployment file"; return 1; }
+  sdl=$1
+  shift
+  [ ! -f $sdl ] || [ -z $sdl ] && { e_echo "Specify deployment file"; return 1; }
 
   # default to 1 if not exported.
   export AKASH_OSEQ=${AKASH_OSEQ:-1}
@@ -188,11 +190,11 @@ function akash_deploy() {
   fi
 
   export -n AKASH_DSEQ
-  TX=$(akash_safe_tx deployment create -y $1) # | jq -r '.txhash')
+  TX=$(akash_safe_tx deployment create -y $@ -- $sdl) # | jq -r '.txhash')
   rc=$?
   export AKASH_DSEQ
   if [ "$rc" -ne "0" ]; then
-    e_echo "- issue in the Akash deployment manifest '$1'"
+    e_echo "- issue in the Akash deployment manifest '$sdl'"
     e_echo "- certificate has not been committed to blockchain"
     e_echo "In some cases the transaction could have been successfully broadcasted, so"
     e_echo "before re-running akash_deploy, run akash_orders first to see if that is the case."
