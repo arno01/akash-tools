@@ -269,12 +269,27 @@ function akash_close_deployment() {
   fi
 
   echo "$AKASH_DSEQ/$AKASH_OSEQ deployment has been successfully closed."
-  usd_per_akt="$(get_akt_price)"
-  spent=$($AKASH_BIN query deployment get | jq -r '.escrow_account.transferred.amount')
-  spent_usd=$(echo "scale=7;($spent/10^6)*$usd_per_akt" | bc -l)
-  i_echo "Total $spent uakt or" $(printf '$%.7f' $spent_usd)
 
+  # Determine the coin type
+  denom_type=$($AKASH_BIN query deployment get | jq -r '.escrow_account.transferred.denom')
+
+  # NOTE: "ibc/12C6A0C374171B595A0A9E18B83FA09D295FB1F2D8C6DAA3AC28683471752D84" is uausdc (aUSDC) base_denom from the sandbox-01 !
+  # TODO: add the mainnet once it is ready
+  if [[ $denom_type == "ibc/12C6A0C374171B595A0A9E18B83FA09D295FB1F2D8C6DAA3AC28683471752D84" ]]; then
+    usd_per_uausdc=1
+    rate_used=$usd_per_uausdc
+    base_denom="uausdc"
+  else
+    usd_per_akt="$(get_akt_price)"
+    rate_used=$usd_per_akt
+    base_denom="uakt"
+  fi
+  spent=$($AKASH_BIN query deployment get | jq -r '.escrow_account.transferred.amount')
+  spent_usd=$(echo "scale=7;($spent/10^6)*$rate_used" | bc -l)
+
+  i_echo "Total $spent $base_denom or" $(printf '$%.7f' $spent_usd)
   d_echo "Clearing AKASH_DSEQ, AKASH_GSEQ, AKASH_OSEQ, AKASH_PROVIDER environment variables"
+
   unset AKASH_OSEQ
   unset AKASH_GSEQ
   unset AKASH_DSEQ
@@ -284,12 +299,28 @@ function akash_close_deployment() {
 
 function akash_close_gseq() {
   echo "$AKASH_DSEQ/$AKASH_GSEQ/$AKASH_OSEQ group has been successfully closed."
-  usd_per_akt="$(get_akt_price)"
-  spent=$($AKASH_BIN query deployment get | jq -r '.escrow_account.transferred.amount')
-  spent_usd=$(echo "scale=7;($spent/10^6)*$usd_per_akt" | bc -l)
-  i_echo "Spent $spent uakt or" $(printf '$%.7f' $spent_usd)
 
+  # Determine the coin type
+  denom_type=$($AKASH_BIN query deployment get | jq -r '.escrow_account.transferred.denom')
+
+  # NOTE: "ibc/12C6A0C374171B595A0A9E18B83FA09D295FB1F2D8C6DAA3AC28683471752D84" is uausdc (aUSDC) base_denom from the sandbox-01 !
+  # TODO: add the mainnet once it is ready
+  if [[ $denom_type == "ibc/12C6A0C374171B595A0A9E18B83FA09D295FB1F2D8C6DAA3AC28683471752D84" ]]; then
+    usd_per_uausdc=1
+    rate_used=$usd_per_uausdc
+    base_denom="uausdc"
+  else
+    usd_per_akt="$(get_akt_price)"
+    rate_used=$usd_per_akt
+    base_denom="uakt"
+  fi
+
+  spent=$($AKASH_BIN query deployment get | jq -r '.escrow_account.transferred.amount')
+  spent_usd=$(echo "scale=7;($spent/10^6)*$rate_used" | bc -l)
+
+  i_echo "Spent $spent $base_denom or" $(printf '$%.7f' $spent_usd)
   d_echo "Clearing AKASH_DSEQ, AKASH_GSEQ, AKASH_OSEQ, AKASH_PROVIDER environment variables"
+
   unset AKASH_OSEQ
   unset AKASH_GSEQ
   unset AKASH_DSEQ
@@ -528,7 +559,7 @@ function akash_accept() {
   printf "\trate\tmonthly\tusd\tdseq/gseq/oseq\tprovider\t\t\t\t\thost\n"
   echo "$PL" | jq -r '.bids[].bid | [.price.amount, .price.denom, (.bid_id | .dseq, .gseq, .oseq, .provider)] | @tsv' | while read rate denom dseq gseq oseq p; do
     # Select appropriate USD conversion rate based on denom
-    # NOTE: this is uausdc (aUSDC) from the sandbox-01 !
+    # NOTE: "ibc/12C6A0C374171B595A0A9E18B83FA09D295FB1F2D8C6DAA3AC28683471752D84" is uausdc (aUSDC) base_denom from the sandbox-01 !
     # TODO: add the mainnet once it is ready
     if [ "$denom" = "ibc/12C6A0C374171B595A0A9E18B83FA09D295FB1F2D8C6DAA3AC28683471752D84" ]; then
       usd_per_unit=$usd_per_uausdc
