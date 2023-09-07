@@ -273,17 +273,27 @@ function akash_close_deployment() {
   # Determine the coin type
   denom_type=$($AKASH_BIN query deployment get | jq -r '.escrow_account.transferred.denom')
 
-  # NOTE: "ibc/12C6A0C374171B595A0A9E18B83FA09D295FB1F2D8C6DAA3AC28683471752D84" is uausdc (aUSDC) base_denom from the sandbox-01 !
-  # TODO: add the mainnet once it is ready
-  if [[ $denom_type == "ibc/12C6A0C374171B595A0A9E18B83FA09D295FB1F2D8C6DAA3AC28683471752D84" ]]; then
-    usd_per_uausdc=1
-    rate_used=$usd_per_uausdc
-    base_denom="uausdc"
-  else
-    usd_per_akt="$(get_akt_price)"
-    rate_used=$usd_per_akt
-    base_denom="uakt"
-  fi
+  # Select appropriate USD conversion rate based on denom
+  case "$denom_type" in
+    # sandbox: Axelar USDC (uausdc)
+    "ibc/12C6A0C374171B595A0A9E18B83FA09D295FB1F2D8C6DAA3AC28683471752D84")
+      usd_per_uausdc=1
+      rate_used=$usd_per_uausdc
+      base_denom="uausdc"
+      ;;
+    # mainnet: Axelar USDC (uusdc)
+    "ibc/170C677610AC31DF0904FFE09CD3B5C657492170E7E52372E48756B71E56F2F1")
+      usd_per_uusdc=1
+      rate_used=$usd_per_uusdc
+      base_denom="uusdc"
+      ;;
+    *)
+      usd_per_akt="$(get_akt_price)"
+      rate_used=$usd_per_akt
+      base_denom="uakt"
+      ;;
+  esac
+
   spent=$($AKASH_BIN query deployment get | jq -r '.escrow_account.transferred.amount')
   spent_usd=$(echo "scale=7;($spent/10^6)*$rate_used" | bc -l)
 
@@ -303,17 +313,26 @@ function akash_close_gseq() {
   # Determine the coin type
   denom_type=$($AKASH_BIN query deployment get | jq -r '.escrow_account.transferred.denom')
 
-  # NOTE: "ibc/12C6A0C374171B595A0A9E18B83FA09D295FB1F2D8C6DAA3AC28683471752D84" is uausdc (aUSDC) base_denom from the sandbox-01 !
-  # TODO: add the mainnet once it is ready
-  if [[ $denom_type == "ibc/12C6A0C374171B595A0A9E18B83FA09D295FB1F2D8C6DAA3AC28683471752D84" ]]; then
-    usd_per_uausdc=1
-    rate_used=$usd_per_uausdc
-    base_denom="uausdc"
-  else
-    usd_per_akt="$(get_akt_price)"
-    rate_used=$usd_per_akt
-    base_denom="uakt"
-  fi
+  # Select appropriate USD conversion rate based on denom
+  case "$denom_type" in
+    # sandbox: Axelar USDC (uausdc)
+    "ibc/12C6A0C374171B595A0A9E18B83FA09D295FB1F2D8C6DAA3AC28683471752D84")
+      usd_per_uausdc=1
+      rate_used=$usd_per_uausdc
+      base_denom="uausdc"
+      ;;
+    # mainnet: Axelar USDC (uusdc)
+    "ibc/170C677610AC31DF0904FFE09CD3B5C657492170E7E52372E48756B71E56F2F1")
+      usd_per_uusdc=1
+      rate_used=$usd_per_uusdc
+      base_denom="uusdc"
+      ;;
+    *)
+      usd_per_akt="$(get_akt_price)"
+      rate_used=$usd_per_akt
+      base_denom="uakt"
+      ;;
+  esac
 
   spent=$($AKASH_BIN query deployment get | jq -r '.escrow_account.transferred.amount')
   spent_usd=$(echo "scale=7;($spent/10^6)*$rate_used" | bc -l)
@@ -552,20 +571,27 @@ function akash_accept() {
   fi
 
   usd_per_akt="$(get_akt_price)"
-  usd_per_uausdc=1  # Since uausdc is a dollar stablecoin
+  usd_per_uausdc=1  # Since uausdc is a dollar stablecoin (sandbox)
+  usd_per_uusdc=1   # Since uausdc is a dollar stablecoin (mainnet)
 
 
   PROVIDERS="$($AKASH_BIN query provider list --page 1 --limit 1000)"
   printf "\trate\tmonthly\tusd\tdseq/gseq/oseq\tprovider\t\t\t\t\thost\n"
   echo "$PL" | jq -r '.bids[].bid | [.price.amount, .price.denom, (.bid_id | .dseq, .gseq, .oseq, .provider)] | @tsv' | while read rate denom dseq gseq oseq p; do
     # Select appropriate USD conversion rate based on denom
-    # NOTE: "ibc/12C6A0C374171B595A0A9E18B83FA09D295FB1F2D8C6DAA3AC28683471752D84" is uausdc (aUSDC) base_denom from the sandbox-01 !
-    # TODO: add the mainnet once it is ready
-    if [ "$denom" = "ibc/12C6A0C374171B595A0A9E18B83FA09D295FB1F2D8C6DAA3AC28683471752D84" ]; then
-      usd_per_unit=$usd_per_uausdc
-    else
-      usd_per_unit=$usd_per_akt
-    fi
+    case "$denom" in
+      # sandbox: Axelar USDC
+      "ibc/12C6A0C374171B595A0A9E18B83FA09D295FB1F2D8C6DAA3AC28683471752D84")
+        usd_per_unit=$usd_per_uausdc
+        ;;
+      # mainnet: Axelar USDC
+      "ibc/170C677610AC31DF0904FFE09CD3B5C657492170E7E52372E48756B71E56F2F1")
+        usd_per_unit=$usd_per_uusdc
+        ;;
+      *)
+        usd_per_unit=$usd_per_akt
+        ;;
+    esac
 
     uri="$(echo $PROVIDERS | jq --arg p $p -r '.providers[] | select(.owner == $p) | .host_uri' | awk -F/ '{print $3}')"
     price_m=$(echo "scale=2; $rate*((60/6.117)*60*24*30.436875)/10^6" | bc -l | sed 's/^\./0./')
