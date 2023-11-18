@@ -15,6 +15,14 @@ fi
 PROVIDER=$1
 
 if [[ $PROVIDER == akash1* ]]; then
+  if ! type -P provider-services > /dev/null; then
+    echo "For the provider detection by its akash1 address, please install provider-services from https://github.com/akash-network/provider/releases"
+    exit 1
+  fi
+
+  # https://github.com/akash-network/net/blob/main/mainnet/rpc-nodes.txt
+  export AKASH_NODE=https://rpc.akashnet.net:443
+
   PROVIDER="$(provider-services query provider get $PROVIDER -o json | jq -r '.host_uri')"
 fi
 
