@@ -1,9 +1,7 @@
 #!/bin/bash
 # Filename: provider_info.sh
 #
-# Version: 0.1 - September 02 2023
-#
-# TODO: add ability to pass the provider akash1... address
+# Version: 0.2 - November 18 2023
 #
 
 # Check if the provider argument is supplied
@@ -16,9 +14,28 @@ fi
 # Define the provider from the first script argument
 PROVIDER=$1
 
+if [[ $PROVIDER == akash1* ]]; then
+  PROVIDER="$(provider-services query provider get $PROVIDER -o json | jq -r '.host_uri')"
+fi
+
+# strip http(s):// and trailing stuff if present, and detect the port
+#if [[ $PROVIDER =~ ^https?://([^:]+)(:8443)?(.*)?$ ]]; then
+if [[ $PROVIDER =~ (^https?://)?([^:/]+):?([0-9]+)?(.*)?$ ]]; then
+    # Capture the URL without the protocol and port
+    domain_part=${BASH_REMATCH[2]}
+    port_part=${BASH_REMATCH[3]:-8443}
+    path_part=${BASH_REMATCH[4]}
+
+    # Construct the final string
+    s="$domain_part:$port_part"
+else
+    s=$PROVIDER
+fi
+PROVIDER=$s
+
 # Execute the updated curl and jq command
-curl -sk "https://${PROVIDER}:8443/status" | jq -r '
-[
+curl -sk "https://${PROVIDER}/status" | jq -r '
+[ [.cluster_public_hostname, .address],
   ["type", "cpu", "gpu", "ram", "ephemeral", "persistent"],
   (
     ["used"] +
