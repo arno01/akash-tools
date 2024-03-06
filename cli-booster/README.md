@@ -29,9 +29,16 @@ Feel free to contribute via pull request!
 ## Usage
 
 1. Initialize
+
+> **Mac Users (and any one else who does not have bash as default shell)**: For this script to run properly you must be within the context of a bash shell.
+
 ```
+# set bash as current shell
+bash
+# initialize cli tools
 . akash.source
 ```
+
 
 > If you are using your key for the first time, make sure to create the client cert:
 > 
