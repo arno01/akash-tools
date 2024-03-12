@@ -1,6 +1,6 @@
 # Akash CLI shell booster 0.4.1
 #
-# Date: 21 February 2022
+# Version: 12 March 2024
 # Author: Andy <andrey.arapov@nixaid.com>
 #
 # Make sure you have the following programs installed:
@@ -226,7 +226,7 @@ function akash_deploy() {
   fi
 
   export -n AKASH_DSEQ
-  TX=$(akash_safe_tx deployment create -y $@ -- $sdl) # | jq -r '.txhash')
+  TX=$(akash_safe_tx deployment create -y --deposit 500000uakt $@ -- $sdl) # | jq -r '.txhash')
   rc=$?
   export AKASH_DSEQ
   if [ "$rc" -ne "0" ]; then
@@ -714,6 +714,9 @@ function akash_send_manifest() {
 # akash_shell bash -c "uname -r"
 # akash_shell bash -c "bash -c 'uname -r'"
 # akash_shell <service> bash -c "uname -r"
+#
+# TODO: support --replica-index on the CLI
+#       provider-services-0.4.8-rc0 lease-shell --provider akash1rk090a6mq9gvm0h6ljf8kz8mrxglwwxsk4srxh --replica-index=1 --tty --stdin -- app bash
 function akash_shell() {
   akash_findprovider
 
@@ -778,7 +781,7 @@ function akash_events() {
 
 function akash_providers() {
   export -n AKASH_PROVIDER
-  $AKASH_BIN query provider list --limit 500 | jq -r '.providers[] | [ .host_uri, .owner, .attributes[].value ] | @csv' | sort -d
+  $AKASH_BIN query provider list --limit 1000 | jq -r '.providers[] | [ .host_uri, .owner, .attributes[].value ] | @csv' | sort -d
   export AKASH_PROVIDER
 }
 
