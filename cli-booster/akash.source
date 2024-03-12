@@ -220,8 +220,8 @@ function akash_deploy() {
     B=$(akash_balance uakt)
   fi
 
-  if (( $(echo "$B < 5.5" | bc) )); then
-    e_echo "Your $AKASH_OWNER account has low balance, make sure to have at least 5.5 AKT."
+  if (( $(echo "$B < 0.6" | bc) )); then
+    e_echo "Your $AKASH_OWNER account has low balance, make sure to have at least 0.6 AKT."
     return 1
   fi
 
