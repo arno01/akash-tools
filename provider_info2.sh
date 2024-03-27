@@ -49,7 +49,7 @@ echo "PROVIDER INFO"
 echo "$JSON" | jq -r '["hostname","address"],[.cluster_public_hostname, .address] | @csv' | column -t -s,
 
 echo
-echo "Total/Allocatable/Used (t/a/u) per node:"
+echo "Total/Available/Used (t/a/u) per node:"
 echo "$JSON" | jq -r '
   ["name", "cpu(t/a/u)", "gpu(t/a/u)", "mem(t/a/u GiB)", "ephemeral(t/a/u GiB)"],
   (.cluster.inventory.available.nodes?[] // empty |
