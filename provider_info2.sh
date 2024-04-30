@@ -1,7 +1,7 @@
 #!/bin/bash
 # Filename: provider_info2.sh
 #
-# Version: 0.1 - 24-Feb-2024 (provider >=v0.5.x)
+# Version: 0.2 - 30-April-2024 (provider >=v0.5.x)
 #
 # TODO: leverage Feature Discovery grpcurl -insecure <provider-url>:8444 akash.provider.v1.ProviderRPC.GetStatus
 
@@ -46,6 +46,8 @@ PROVIDER=$s
 JSON="$(curl -sk https://${PROVIDER}/status)"
 
 echo "PROVIDER INFO"
+provider_address=$(echo "$JSON" | jq -r '.address')
+echo "BALANCE: $(provider-services query bank balances $provider_address -o json | jq -r '.balances[] | select(.denom == "uakt") | .amount // 0|tonumber/pow(10;6)')"
 echo "$JSON" | jq -r '["hostname","address"],[.cluster_public_hostname, .address] | @csv' | column -t -s,
 
 echo
